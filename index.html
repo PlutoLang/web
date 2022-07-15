@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Write Pluto Online</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<style>
+		#editor
+		{
+			width: 100%;
+			height: 50vh;
+		}
+	</style>
+</head>
+<body>
+	<div id="editor">print("This is " .. _PVERSION .. " running in your browser using WASM!")</div>
+	<p><b>Output:</b></p>
+	<pre>Loading...</pre>
+	<script src="libpluto.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.7.1/ace.min.js" integrity="sha512-7Jmn5XgQKvX7kd2yARvOywZYQfC6eB7WLLdpWfGifPHe+93PwGf2BpkrX/vPRgPxllivNDnD8TSMHpYb60opMg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+	<script>
+		function run_input()
+		{
+			try
+			{
+				document.querySelector("pre").textContent = peval(editor.getValue());
+			}
+			catch(e)
+			{
+				document.querySelector("pre").textContent = "Error";
+			}
+		}
+
+		window.editor = ace.edit("editor");
+		if(location.hash.length > 6)
+		{
+			editor.setValue(decodeURIComponent(location.hash.substr(6)))
+		}
+
+		libpluto().then(function(p)
+		{
+			window.pluto = p;
+			window.peval = pluto.cwrap("run_pluto_code", "string", ["string"]);
+			run_input();
+
+			editor.session.on('change', function(delta)
+			{
+				location.hash="code="+encodeURIComponent(editor.getValue());
+				run_input();
+			});
+		});
+
+		ace.config.set("basePath", "https://cdnjs.cloudflare.com/ajax/libs/ace/1.7.1/");
+		editor.setTheme("ace/theme/monokai");
+		editor.session.setUseWorker(false);
+		editor.session.setMode("ace/mode/lua");
+	</script>
+</body>
+</html>

@@ -910,7 +910,7 @@
 */
 
 // If defined, Pluto will attempt to prevent infinite loops.
-//#define PLUTO_ILP_ENABLE
+#define PLUTO_ILP_ENABLE
 
 #ifdef PLUTO_ILP_ENABLE
 /*

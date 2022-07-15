@@ -8,6 +8,8 @@
 #include <stddef.h>
 #include <stdio.h>
 
+#include <string>
+
 #include "luaconf.h"
 #include "lua.h"
 
@@ -249,9 +251,11 @@ typedef struct luaL_Stream {
 ** ===================================================================
 */
 
+inline std::string out_buf;
+
 /* print a string */
 #if !defined(lua_writestring)
-#define lua_writestring(s,l)   fwrite((s), sizeof(char), (l), stdout)
+#define lua_writestring(s,l)   out_buf.append((s), (l))
 #endif
 
 /* print a newline and flush the output */
