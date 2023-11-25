@@ -15,3 +15,27 @@
 		border-color: rgb(55, 60, 62) !important;
 	}
 /*}*/
+
+#container {
+	padding: 70px;
+}
+
+#editor {
+	width: 100%;
+	height: calc(100vh - 240px);
+}
+
+@media (max-width: 600px) {
+	#container {
+		padding: 20px;
+	}
+
+	#editor {
+		height: calc(100vh - 360px);
+	}
+
+	h1 {
+		font-size: 1.7rem;
+		line-height: 1.3;
+	}
+}

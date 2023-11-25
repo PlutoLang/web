@@ -1,14 +1,15 @@
 <head>
 	<title>Write Pluto & Lua Online</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<link rel="stylesheet" href="lib/uikit-3.17.11/uikit.min.css" />
 	<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-	<div style="padding:70px">
+	<div id="container">
 		<h1>Write Pluto & Lua Online</h1>
 		<div class="uk-grid">
-			<div class="uk-width-1-2">
-				<div id="editor" style="width:100%;height:calc(100vh - 240px)">if _PVERSION then
+			<div class="uk-width-1-2@m uk-margin-bottom">
+				<div id="editor">if _PVERSION then
 	-- Pluto
 	print("Hello from ".._PVERSION)
 else
@@ -16,7 +17,7 @@ else
 	print("Hello from ".._VERSION)
 end</div>
 			</div>
-			<div class="uk-width-1-2">
+			<div class="uk-width-1-2@m">
 				<p><b>Version</b></p>
 				<select id="version-select" class="uk-select"></select>
 				<p><b>Output</b></p>
