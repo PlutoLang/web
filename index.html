@@ -1,8 +1,31 @@
-<script>
-	let ue_code = 'print("This%20is%20"%20..%20_PVERSION%20..%20"%20running%20in%20your%20browser%20using%20WASM!")';
-	if(location.hash.length > 6)
-	{
-		ue_code = location.hash.substr(6)
-	}
-	location.href = "https://webshell.dev/#code=" + ue_code + "&ext=pluto&run=pluto";
-</script>
+<head>
+	<title>Write Pluto & Lua Online</title>
+	<link rel="stylesheet" href="lib/uikit-3.17.11/uikit.min.css" />
+</head>
+<body>
+	<div class="uk-section">
+		<div class="uk-container">
+			<h1>Write Pluto & Lua Online</h1>
+			<div class="uk-grid">
+				<div class="uk-width-1-2">
+					<div id="editor" style="width:100%;height:calc(100vh - 240px)">if _PVERSION then
+	-- Pluto
+	print("Hello from ".._PVERSION)
+else
+	-- Lua
+	print("Hello from ".._VERSION)
+end</div>
+				</div>
+				<div class="uk-width-1-2">
+					<p><b>Version</b></p>
+					<select id="version-select" class="uk-select"></select>
+					<p><b>Output</b></p>
+					<pre id="output">Loading...</pre>
+				</div>
+			</div>
+		</div>
+	</div>
+	<script src="lib/jquery-3.7.1.min.js"></script>
+	<script src="lib/ace/ace.js"></script>
+	<script src="script.js"></script>
+</body>
