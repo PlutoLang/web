@@ -4,25 +4,23 @@
 	<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-	<div class="uk-section">
-		<div class="uk-container">
-			<h1>Write Pluto & Lua Online</h1>
-			<div class="uk-grid">
-				<div class="uk-width-1-2">
-					<div id="editor" style="width:100%;height:calc(100vh - 240px)">if _PVERSION then
+	<div style="padding:70px">
+		<h1>Write Pluto & Lua Online</h1>
+		<div class="uk-grid">
+			<div class="uk-width-1-2">
+				<div id="editor" style="width:100%;height:calc(100vh - 240px)">if _PVERSION then
 	-- Pluto
 	print("Hello from ".._PVERSION)
 else
 	-- Lua
 	print("Hello from ".._VERSION)
 end</div>
-				</div>
-				<div class="uk-width-1-2">
-					<p><b>Version</b></p>
-					<select id="version-select" class="uk-select"></select>
-					<p><b>Output</b></p>
-					<pre id="output">Loading...</pre>
-				</div>
+			</div>
+			<div class="uk-width-1-2">
+				<p><b>Version</b></p>
+				<select id="version-select" class="uk-select"></select>
+				<p><b>Output</b></p>
+				<pre id="output">Loading...</pre>
 			</div>
 		</div>
 	</div>
