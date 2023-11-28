@@ -89,9 +89,30 @@ function runInEnvironment(environment, callback)
 		config.noInitialRun = true;
 		config.preInit = function()
 		{
+			let buf = -1;
 			let out = function(c)
 			{
-				document.getElementById("output").textContent += String.fromCharCode(c);
+				if (c < 0) // UTF-8 continuation flag?
+				{
+					c = 256 + c;
+					if (buf != -1)
+					{
+						// NOTE: Assuming only 2-byte combinations (110xxxxx 11xxxxxx)
+						let utf16 = (buf & 0b11111);
+						utf16 <<= 6;
+						utf16 |= (c & 0b111111);
+						document.getElementById("output").textContent += String.fromCharCode(utf16);
+						buf = -1;
+					}
+					else
+					{
+						buf = c;
+					}
+				}
+				else
+				{
+					document.getElementById("output").textContent += String.fromCharCode(c);
+				}
 			};
 			config.FS.init(undefined, out, out);
 		};
@@ -106,9 +127,7 @@ function runInEnvironment(environment, callback)
 			};
 
 			// Write script to FS
-			let script = editor.getValue();
-			let data = new Uint8Array(script.length);
-			str2arr(script, data);
+			let data = utf16_to_utf8(editor.getValue());
 			let stream = prog.mod.FS.open("script." + environment.name, "w+");
 			prog.mod.FS.write(stream, data, 0, data.length, 0);
 			prog.mod.FS.close(stream);
@@ -132,12 +151,26 @@ function runInEnvironment(environment, callback)
 	document.body.appendChild(script);
 }
 
-function str2arr(str, arr)
+function utf16_to_utf8(str)
 {
+	// NOTE: Currently doesn't handle UTF-16 surrogate pairs.
+	let arr = [];
 	for(let i = 0; i != str.length; ++i)
 	{
-		arr[i] = str.charCodeAt(i);
+		let c = str.charCodeAt(i);
+		if (c < 0b10000000)
+		{
+			arr.push(c);
+		}
+		else
+		{
+			let hi = (c & 0b111111) | 0b10000000;
+			c >>= 6;
+			arr.push(c | 0b11000000);
+			arr.push(hi);
+		}
 	}
+	return arr;
 }
 
 const PTRSIZE = 4;
