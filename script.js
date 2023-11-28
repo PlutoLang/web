@@ -89,24 +89,38 @@ function runInEnvironment(environment, callback)
 		config.noInitialRun = true;
 		config.preInit = function()
 		{
-			let buf = -1;
+			let todo = 0, buf;
 			let out = function(c)
 			{
 				if (c < 0) // UTF-8 continuation flag?
 				{
 					c = 256 + c;
-					if (buf != -1)
+					if (todo == 0)
 					{
-						// NOTE: Assuming only 2-byte combinations (110xxxxx 11xxxxxx)
-						let utf16 = (buf & 0b11111);
-						utf16 <<= 6;
-						utf16 |= (c & 0b111111);
-						document.getElementById("output").textContent += String.fromCharCode(utf16);
-						buf = -1;
+						if ((c & 0b01111000) == 0b01110000) // 11110xxx
+						{
+							buf = (c & 0b111);
+							todo = 3;
+						}
+						else if ((c & 0b01110000) == 0b01100000) // 1110xxxx
+						{
+							buf = (c & 0b1111);
+							todo = 2;
+						}
+						else //if ((c & 0b01100000) == 0b01000000) // 110xxxxx
+						{
+							buf = (c & 0b11111);
+							todo = 1;
+						}
 					}
 					else
 					{
-						buf = c;
+						buf <<= 6;
+						buf |= (c & 0b111111);
+						if (--todo == 0)
+						{
+							document.getElementById("output").textContent += utf32_to_utf16(buf);
+						}
 					}
 				}
 				else
@@ -151,24 +165,63 @@ function runInEnvironment(environment, callback)
 	document.body.appendChild(script);
 }
 
+function utf32_to_utf16(c)
+{
+	if (c <= 0xFFFF)
+	{
+		return String.fromCharCode(c);
+	}
+	else
+	{
+		c -= 0x10000;
+		return String.fromCharCode((c >> 10) + 0xD800) + String.fromCharCode((c & 0x3FF) + 0xDC00);
+	}
+}
+
+function utf32_to_utf8(utf8/*: array */, utf32/*: number */)/*: void */
+{
+	// 1
+	if (utf32 < 0b10000000)
+	{
+		utf8.push(utf32);
+		return;
+	}
+	// 2
+	const UTF8_CONTINUATION_FLAG = 0b10000000;
+	utf8.push((utf32 & 0b111111) | UTF8_CONTINUATION_FLAG);
+	utf32 >>= 6;
+	if (utf32 <= 0b11111)
+	{
+		utf8.splice(utf8.length - 1, 0, utf32 | 0b11000000); // 110xxxxx
+		return;
+	}
+	// 3
+	utf8.splice(utf8.length - 1, 0, (utf32 & 0b111111) | UTF8_CONTINUATION_FLAG);
+	utf32 >>= 6;
+	if (utf32 <= 0b1111)
+	{
+		utf8.splice(utf8.length - 2, 0, utf32 | 0b11100000); // 1110xxxx
+		return;
+	}
+	// 4
+	utf8.splice(utf8.length - 2, 0, (utf32 & 0b111111) | UTF8_CONTINUATION_FLAG);
+	utf32 >>= 6;
+	utf8.splice(utf8.length - 3, 0, utf32 | 0b11110000); // 11110xxx
+}
+
 function utf16_to_utf8(str)
 {
-	// NOTE: Currently doesn't handle UTF-16 surrogate pairs.
 	let arr = [];
 	for(let i = 0; i != str.length; ++i)
 	{
 		let c = str.charCodeAt(i);
-		if (c < 0b10000000)
+		if ((c >> 10) == 0x36) // Surrogate pair?
 		{
-			arr.push(c);
+			let hi = c & 0x3ff;
+			let lo = str.charCodeAt(++i) & 0x3ff;
+			c = (((hi * 0x400) + lo) + 0x10000);
 		}
-		else
-		{
-			let hi = (c & 0b111111) | 0b10000000;
-			c >>= 6;
-			arr.push(c | 0b11000000);
-			arr.push(hi);
-		}
+		utf32_to_utf8(arr, c);
 	}
 	return arr;
 }
