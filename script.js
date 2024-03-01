@@ -12,12 +12,17 @@ if (location.hash.substr(0, 6) == "#code=")
 }
 
 // Enviroments
+var latest_pluto_version;
 function addOptgroupOptions(elm, name, dname)
 {
 	Object.keys(environments[name]).reverse().forEach(version => {
 		let option = document.createElement("option");
 		option.value = name+":"+version;
 		option.textContent = dname+" "+version;
+		if (name == "pluto" && version == latest_pluto_version)
+		{
+			option.selected = true;
+		}
 		elm.appendChild(option);
 	});
 }
@@ -26,7 +31,16 @@ var rerun_timer;
 $.get("https://wasm.pluto.do/manifest.json", function(data)
 {
 	window.environments = data;
-	let latest_pluto_version = Object.keys(environments.pluto).slice(-1)[0];
+
+	Object.keys(environments.pluto).reverse().forEach(version => {
+		if (!latest_pluto_version
+			&& version.indexOf('-') == -1
+			)
+		{
+			latest_pluto_version = version;
+		}
+	});
+
 	window.selected_environment = {
 		name: "pluto",
 		url: environments.pluto[latest_pluto_version]
