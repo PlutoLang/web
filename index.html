@@ -5,10 +5,14 @@
 	<link rel="stylesheet" href="style.css" />
 </head>
 <body>
-	<div id="container">
+	<div id="container" class="uk-light">
 		<h1>Write Pluto & Lua Online</h1>
 		<div class="uk-grid">
 			<div class="uk-width-1-2@m uk-margin-bottom">
+				<ul class="uk-tab">
+					<li><a>index.pluto</a></li>
+					<li id="add-file"><a>+</a></li>
+				</ul>
 				<div id="editor">if _PVERSION then
 	-- Pluto
 	print("Hello from ".._PVERSION)

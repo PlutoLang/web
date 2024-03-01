@@ -5,11 +5,123 @@ editor.session.setUseWorker(false);
 editor.session.setMode("ace/mode/lua");
 editor.focus();
 
-// Load Code From URL
-if (location.hash.substr(0, 6) == "#code=")
+// Files
+var file_contents = {
+	'index.pluto': `if _PVERSION then
+	-- Pluto
+	print("Hello from ".._PVERSION)
+else
+	-- Lua
+	print("Hello from ".._VERSION)
+end`
+};
+
+function addFile(name, contents)
 {
-	editor.setValue(decodeURIComponent(location.hash.substr(6)));
+	file_contents[name] = contents;
+
+	let li = document.createElement("li");
+	let a = document.createElement("a");
+	a.textContent = name;
+	li.appendChild(a);
+	let reference = document.getElementById("add-file");
+	reference.parentNode.insertBefore(li, reference);
 }
+
+function activateFile(name)
+{
+	document.querySelectorAll(".uk-tab > li").forEach(li => {
+		if (li.querySelector("a").textContent == name)
+		{
+			li.classList.add("uk-active");
+		}
+		else
+		{
+			li.classList.remove("uk-active");
+		}
+	});
+
+	editor.setValue(file_contents[name]);
+}
+
+function getActiveFile()
+{
+	return document.querySelector(".uk-tab .uk-active a").textContent;
+}
+
+document.addEventListener("click", function(e)
+{
+	let file_clicked;
+	if (e.target.matches(".uk-tab > li"))
+	{
+		file_clicked = e.target.querySelector("a").textContent;
+	}
+	else if (e.target.closest(".uk-tab > li"))
+	{
+		file_clicked = e.target.closest(".uk-tab > li").querySelector("a").textContent;
+	}
+	if (file_clicked)
+	{
+		if (file_clicked == "+")
+		{
+			let name = window.prompt("File name");
+			if (name)
+			{
+				addFile(name, "");
+				activateFile(name);
+			}
+		}
+		else
+		{
+			activateFile(file_clicked);
+		}
+	}
+});
+
+// Shareable state
+function updateShare()
+{
+	if (Object.keys(file_contents).length > 1)
+	{
+		let parts = [];
+		for (const [name, contents] of Object.entries(file_contents))
+		{
+			parts.push("file_names[]=" + encodeURIComponent(name));
+			parts.push("file_contents[]=" + encodeURIComponent(contents));
+		}
+		location.hash = "#" + parts.join("&");
+	}
+	else
+	{
+		location.hash = "#code=" + encodeURIComponent(editor.getValue());
+	}
+}
+
+let params = new URLSearchParams(location.hash.replace("#", "?"));
+if (params.has("code"))
+{
+	file_contents["index.pluto"] = params.get("code");
+}
+else if (params.has("file_names[]") && params.has("file_contents[]"))
+{
+	let shared_file_names = params.getAll("file_names[]");
+	let shared_file_contents = params.getAll("file_contents[]");
+	if (shared_file_names.length == shared_file_contents.length)
+	{
+		for (let i = 0; i != shared_file_names.length; ++i)
+		{
+			if (shared_file_names[i] == "index.pluto")
+			{
+				file_contents["index.pluto"] = shared_file_contents[i];
+			}
+			else
+			{
+				addFile(shared_file_names[i], shared_file_contents[i]);
+			}
+		}
+	}
+}
+activateFile("index.pluto");
 
 // Enviroments
 var latest_pluto_version;
@@ -51,12 +163,14 @@ $.get("https://wasm.pluto.do/manifest.json", function(data)
 
 		editor.session.on("change", function(delta)
 		{
+			file_contents[getActiveFile()] = editor.getValue();
+
 			clearTimeout(rerun_timer);
 			rerun_timer = setTimeout(function()
 			{
 				runInEnvironment(selected_environment, function(success)
 				{
-					location.hash = "#code=" + encodeURIComponent(editor.getValue());
+					updateShare();
 				});
 			}, 500);
 		});
@@ -151,15 +265,18 @@ function runInEnvironment(environment, callback)
 				main: mod.cwrap("main", "int", ["int", "array"]),
 			};
 
-			// Write script to FS
-			let data = utf16_to_utf8(editor.getValue());
-			let stream = prog.mod.FS.open("script." + environment.name, "w+");
-			prog.mod.FS.write(stream, data, 0, data.length, 0);
-			prog.mod.FS.close(stream);
+			// Write files to FS
+			for (const [name, contents] of Object.entries(file_contents))
+			{
+				let data = utf16_to_utf8(contents);
+				let stream = prog.mod.FS.open(name, "w+");
+				prog.mod.FS.write(stream, data, 0, data.length, 0);
+				prog.mod.FS.close(stream);
+			}
 
 			// Execute
 			$("#output").text("");
-			let argv = [ environment.name, "script." + environment.name ];
+			let argv = [ environment.name, "index.pluto" ];
 			let argv_ptr = allocateStringArray(prog, argv);
 			let status = prog.main(argv.length, argv_ptr);
 			if (status != 0)
