@@ -131,7 +131,7 @@ function addOptgroupOptions(elm, name, dname)
 		let option = document.createElement("option");
 		option.value = name+":"+version;
 		option.textContent = dname+" "+version;
-		if (name == "pluto" && version == latest_pluto_version)
+		if (name == "libpluto" && version == latest_pluto_version)
 		{
 			option.selected = true;
 		}
@@ -144,7 +144,7 @@ $.get("https://wasm.pluto.do/manifest.json", function(data)
 {
 	window.environments = data;
 
-	Object.keys(environments.pluto).reverse().forEach(version => {
+	Object.keys(environments.libpluto).reverse().forEach(version => {
 		if (!latest_pluto_version
 			&& version.indexOf('-') == -1
 			)
@@ -154,8 +154,8 @@ $.get("https://wasm.pluto.do/manifest.json", function(data)
 	});
 
 	window.selected_environment = {
-		name: "pluto",
-		url: environments.pluto[latest_pluto_version]
+		name: "libpluto",
+		url: environments.libpluto[latest_pluto_version]
 	};
 	runInEnvironment(window.selected_environment, function()
 	{
@@ -187,17 +187,28 @@ $.get("https://wasm.pluto.do/manifest.json", function(data)
 	});
 
 	let optgroup = document.createElement("optgroup");
-	optgroup.label = "Pluto";
+	optgroup.label = "Pluto (Non-Blocking)";
+	addOptgroupOptions(optgroup, "libpluto", "Pluto");
+	document.getElementById("version-select").appendChild(optgroup);
+
+	optgroup = document.createElement("optgroup");
+	optgroup.label = "Pluto (Blocking)";
 	addOptgroupOptions(optgroup, "pluto", "Pluto");
 	document.getElementById("version-select").appendChild(optgroup);
 
 	optgroup = document.createElement("optgroup");
-	optgroup.label = "Lua";
+	optgroup.label = "Lua (Blocking)";
 	addOptgroupOptions(optgroup, "lua", "Lua");
 	document.getElementById("version-select").appendChild(optgroup);
 });
 
 // Code Execution
+const LUA_OK = 0;
+const LUA_YIELD = 1;
+
+const LUAI_MAXSTACK = 1000000;
+const LUA_REGISTRYINDEX = (-LUAI_MAXSTACK - 1000);
+
 function runInEnvironment(environment, callback)
 {
 	$("#output").text("$ Loading " + environment.name + ".js...\n");
@@ -257,36 +268,99 @@ function runInEnvironment(environment, callback)
 		};
 		window[environment.name](config).then(function(mod)
 		{
-			let prog = {
-				mod: mod,
-				malloc: mod.cwrap("malloc", "int", ["int"]),
-				free: mod.cwrap("free", "void", ["int"]),
-				strcpy: mod.cwrap("strcpy", "void", ["int", "string"]),
-				main: mod.cwrap("main", "int", ["int", "array"]),
-			};
-
 			// Write files to FS
 			for (const [name, contents] of Object.entries(file_contents))
 			{
 				let data = utf16_to_utf8(contents);
-				let stream = prog.mod.FS.open(name, "w+");
-				prog.mod.FS.write(stream, data, 0, data.length, 0);
-				prog.mod.FS.close(stream);
+				let stream = mod.FS.open(name, "w+");
+				mod.FS.write(stream, data, 0, data.length, 0);
+				mod.FS.close(stream);
 			}
 
 			// Execute
 			$("#output").text("");
-			let argv = [ environment.name, "index.pluto" ];
-			let argv_ptr = allocateStringArray(prog, argv);
-			let status = prog.main(argv.length, argv_ptr);
-			if (status != 0)
+			if (environment.name == "libpluto")
 			{
-				document.getElementById("output").textContent += "$ Program finished with exit code " + status;
-			}
+				let lib = {
+					malloc: mod.cwrap("malloc", "int", ["int"]),
+					luaL_newstate: mod.cwrap("luaL_newstate", "int", []),
+					luaL_openlibs: mod.cwrap("luaL_openlibs", "void", ["int"]),
+					luaL_loadfilex: mod.cwrap("luaL_loadfilex", "int", ["int", "string", "int"]),
+					lua_tolstring: mod.cwrap("lua_tolstring", "string", ["int", "int", "int"]),
+					lua_newthread: mod.cwrap("lua_newthread", "int", ["int"]),
+					lua_xmove: mod.cwrap("lua_xmove", "void", ["int", "int", "int"]),
+					lua_status: mod.cwrap("lua_status", "int", ["int"]),
+					lua_resume: mod.cwrap("lua_resume", "int", ["int", "int", "int", "int"]),
+					luaL_ref: mod.cwrap("luaL_ref", "int", ["int", "int"]),
+				};
+				lib.tmpint = lib.malloc(4);
 
-			if (callback)
+				let L = lib.luaL_newstate();
+				lib.luaL_openlibs(L);
+
+				if (lib.luaL_loadfilex(L, "index.pluto", 0) != LUA_OK)
+				{
+					document.getElementById("output").textContent = lib.lua_tolstring(L, -1, 0);
+
+					if (callback)
+					{
+						callback(false);
+					}
+				}
+				else
+				{
+					let interval, coro, coro_ref;
+
+					coro = lib.lua_newthread(L);
+					coro_ref = lib.luaL_ref(L, LUA_REGISTRYINDEX);
+					lib.lua_xmove(L, coro, 1);
+
+					interval = setInterval(function()
+					{
+						for (let initial = true; initial || lib.lua_status(coro) == LUA_YIELD; initial = false)
+						{
+							status = lib.lua_resume(coro, L, 0, lib.tmpint);
+							if (status == LUA_YIELD)
+							{
+								return;
+							}
+							if (status != LUA_OK)
+							{
+								document.getElementById("output").textContent += lib.lua_tolstring(coro, -1, 0);
+								break;
+							}
+						}
+						clearInterval(interval);
+
+						if (callback)
+						{
+							callback(status == 0);
+						}
+					});
+				}
+			}
+			else
 			{
-				callback(status == 0);
+				let prog = {
+					mod: mod,
+					malloc: mod.cwrap("malloc", "int", ["int"]),
+					free: mod.cwrap("free", "void", ["int"]),
+					strcpy: mod.cwrap("strcpy", "void", ["int", "string"]),
+					main: mod.cwrap("main", "int", ["int", "array"]),
+				};
+
+				let argv = [ environment.name, "index.pluto" ];
+				let argv_ptr = allocateStringArray(prog, argv);
+				let status = prog.main(argv.length, argv_ptr);
+				if (status != 0)
+				{
+					document.getElementById("output").textContent += "$ Program finished with exit code " + status;
+				}
+
+				if (callback)
+				{
+					callback(status == 0);
+				}
 			}
 		});
 	};
