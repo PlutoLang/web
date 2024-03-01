@@ -56,10 +56,7 @@ $.get("https://wasm.pluto.do/manifest.json", function(data)
 			{
 				runInEnvironment(selected_environment, function(success)
 				{
-					if (success)
-					{
-						location.hash = "#code=" + encodeURIComponent(editor.getValue());
-					}
+					location.hash = "#code=" + encodeURIComponent(editor.getValue());
 				});
 			}, 500);
 		});
