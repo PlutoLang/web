@@ -140,6 +140,20 @@ function addOptgroupOptions(elm, name, dname)
 }
 
 var rerun_timer;
+function onCodeChange()
+{
+	file_contents[getActiveFile()] = editor.getValue();
+
+	clearTimeout(rerun_timer);
+	rerun_timer = setTimeout(function()
+	{
+		runInEnvironment(selected_environment, function(success)
+		{
+			updateShare();
+		});
+	}, 500);
+}
+
 $.get("https://wasm.pluto.do/manifest.json", function(data)
 {
 	window.environments = data;
@@ -159,22 +173,8 @@ $.get("https://wasm.pluto.do/manifest.json", function(data)
 	};
 	runInEnvironment(window.selected_environment, function()
 	{
-		// Initial run finished, now register change handlers.
-
-		editor.session.on("change", function(delta)
-		{
-			file_contents[getActiveFile()] = editor.getValue();
-
-			clearTimeout(rerun_timer);
-			rerun_timer = setTimeout(function()
-			{
-				runInEnvironment(selected_environment, function(success)
-				{
-					updateShare();
-				});
-			}, 500);
-		});
-
+		// Initial run finished, register change handlers.
+		editor.session.on("change", onCodeChange);
 		document.getElementById("version-select").onchange = function()
 		{
 			let arr = this.value.split(":");
@@ -184,6 +184,12 @@ $.get("https://wasm.pluto.do/manifest.json", function(data)
 			};
 			runInEnvironment(selected_environment);
 		};
+
+		// If code was changed during environment boot, fire change handler.
+		if (file_contents[getActiveFile()] != editor.getValue())
+		{
+			onCodeChange();
+		}
 	});
 
 	let optgroup = document.createElement("optgroup");
