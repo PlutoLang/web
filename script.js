@@ -229,7 +229,7 @@ function runInEnvironment(environment, callback)
 
 		let config = {};
 		config.noInitialRun = true;
-		config.preInit = function()
+		config.preRun = function(mod)
 		{
 			let todo = 0, buf;
 			let out = function(c)
@@ -270,7 +270,7 @@ function runInEnvironment(environment, callback)
 					document.getElementById("output").textContent += String.fromCharCode(c);
 				}
 			};
-			config.FS.init(undefined, out, out);
+			mod.FS.init(undefined, out, out);
 		};
 		window[environment.name](config).then(function(mod)
 		{
