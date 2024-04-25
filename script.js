@@ -2,7 +2,7 @@
 var editor = ace.edit("editor");
 editor.setTheme("ace/theme/monokai");
 editor.session.setUseWorker(false);
-editor.session.setMode("ace/mode/lua");
+editor.session.setMode("ace/mode/pluto");
 editor.focus();
 
 // Files
