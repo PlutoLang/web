@@ -154,7 +154,7 @@ function onCodeChange()
 	}, 500);
 }
 
-$.get("https://plutolang.github.io/wasm-builds/manifest.json", function(data)
+$.get("https://pluto-lang.org/wasm-builds/manifest.json", function(data)
 {
 	window.environments = data;
 
