@@ -298,6 +298,7 @@ function runInEnvironment(environment, callback)
 					lua_status: mod.cwrap("lua_status", "int", ["int"]),
 					lua_resume: mod.cwrap("lua_resume", "int", ["int", "int", "int", "int"]),
 					luaL_ref: mod.cwrap("luaL_ref", "int", ["int", "int"]),
+					lua_close: mod.cwrap("lua_close", "void", ["int"]),
 				};
 				lib.tmpint = lib.malloc(4);
 
@@ -337,6 +338,8 @@ function runInEnvironment(environment, callback)
 							}
 						}
 						clearInterval(interval);
+
+						lib.lua_close(L);
 
 						if (callback)
 						{
