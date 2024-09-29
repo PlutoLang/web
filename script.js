@@ -423,7 +423,7 @@ function utf32_to_utf8(utf8/*: array */, utf32/*: number */)/*: void */
 function utf16_to_utf8(str)
 {
 	let arr = [];
-	for(let i = 0; i != str.length; ++i)
+	for(let i = 0; i < str.length; ++i)
 	{
 		let c = str.charCodeAt(i);
 		if ((c >> 10) == 0x36) // Surrogate pair?
