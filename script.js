@@ -307,7 +307,7 @@ function runInEnvironment(environment, callback)
 
 				if (lib.luaL_loadfilex(L, "index.pluto", 0) != LUA_OK)
 				{
-					document.getElementById("output").textContent = lib.lua_tolstring(L, -1, 0);
+					document.getElementById("output").textContent += lib.lua_tolstring(L, -1, 0);
 
 					if (callback)
 					{
