@@ -290,7 +290,7 @@ function runInEnvironment(environment, callback)
 				let lib = {
 					malloc: mod.cwrap("malloc", "int", ["int"]),
 					luaL_newstate: mod.cwrap("luaL_newstate", "int", []),
-					luaL_openlibs: mod.cwrap("luaL_openlibs", "void", ["int"]),
+					luaL_openlibs: mod._luaL_openlibs ? mod.cwrap("luaL_openlibs", "void", ["int"]) : undefined,
 					luaL_loadfilex: mod.cwrap("luaL_loadfilex", "int", ["int", "string", "int"]),
 					lua_tolstring: mod.cwrap("lua_tolstring", "string", ["int", "int", "int"]),
 					lua_newthread: mod.cwrap("lua_newthread", "int", ["int"]),
@@ -300,6 +300,11 @@ function runInEnvironment(environment, callback)
 					luaL_ref: mod.cwrap("luaL_ref", "int", ["int", "int"]),
 					lua_close: mod.cwrap("lua_close", "void", ["int"]),
 				};
+				if (!lib.luaL_openlibs)
+				{
+					lib.luaL_openselectedlibs = mod.cwrap("luaL_openselectedlibs", "int", ["int", "int", "int"]);
+					lib.luaL_openlibs = (L) => lib.luaL_openselectedlibs(L, 1023, 0xffffffff);
+				}
 				lib.tmpint = lib.malloc(4);
 
 				let L = lib.luaL_newstate();
