@@ -360,7 +360,7 @@ function runInEnvironment(environment, callback)
 					malloc: mod.cwrap("malloc", "int", ["int"]),
 					free: mod.cwrap("free", "void", ["int"]),
 					strcpy: mod.cwrap("strcpy", "void", ["int", "string"]),
-					main: mod.cwrap("main", "int", ["int", "array"]),
+					main: mod.cwrap("main", "int", ["int", mod.setValue ? "int" : "array"]),
 				};
 
 				let argv = [ environment.name, "index.pluto" ];
@@ -446,13 +446,22 @@ const PTRSIZE = 4;
 
 function allocateString(prog, str)
 {
-	let ptr = prog.malloc(str.length + 1);
+	const ptr = prog.malloc(str.length + 1);
 	prog.strcpy(ptr, str);
 	return ptr;
 }
 
 function allocateStringArray(prog, arr)
 {
+	if (prog.mod.setValue)
+	{
+		const ptr = prog.malloc(PTRSIZE * arr.length);
+		for (let i = 0; i != arr.length; ++i)
+		{
+			prog.mod.setValue(ptr + i * PTRSIZE, allocateString(prog, arr[i]), "i" + (PTRSIZE * 8));
+		}
+		return ptr;
+	}
 	let u32arr = new Uint32Array(arr.length);
 	for (let i = 0; i != arr.length; ++i)
 	{
