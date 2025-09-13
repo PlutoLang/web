@@ -1,0 +1,1 @@
+To update this, run `node ./Makefile.dryice.js -m` in https://github.com/PlutoLang/ace and copy the relevant files from `build/src-min`.
