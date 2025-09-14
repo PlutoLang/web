@@ -81,23 +81,26 @@ document.addEventListener("click", function(e)
 // Shareable state
 function updateShare()
 {
-	if (Object.keys(file_contents).length > 1)
-	{
-		let parts = [];
-		for (const [name, contents] of Object.entries(file_contents))
-		{
-			parts.push("file_names[]=" + encodeURIComponent(name));
-			parts.push("file_contents[]=" + encodeURIComponent(contents));
-		}
-		location.hash = "#" + parts.join("&");
-	}
-	else
-	{
-		location.hash = "#code=" + encodeURIComponent(editor.getValue());
-	}
+        let env = "env=" + encodeURIComponent(selected_environment.name + ":" + selected_environment.version);
+        if (Object.keys(file_contents).length > 1)
+        {
+                let parts = [];
+                for (const [name, contents] of Object.entries(file_contents))
+                {
+                        parts.push("file_names[]=" + encodeURIComponent(name));
+                        parts.push("file_contents[]=" + encodeURIComponent(contents));
+                }
+                parts.push(env);
+                location.hash = "#" + parts.join("&");
+        }
+        else
+        {
+                location.hash = "#code=" + encodeURIComponent(editor.getValue()) + "&" + env;
+        }
 }
 
 let params = new URLSearchParams(location.hash.replace("#", "?"));
+let selected_env_from_hash = params.get("env");
 if (params.has("code"))
 {
 	file_contents["index.pluto"] = params.get("code");
@@ -127,16 +130,16 @@ activateFile("index.pluto");
 var latest_pluto_version;
 function addOptgroupOptions(elm, name, dname)
 {
-	Object.keys(environments[name]).reverse().forEach(version => {
-		let option = document.createElement("option");
-		option.value = name+":"+version;
-		option.textContent = dname+" "+version;
-		if (name == "libpluto" && version == latest_pluto_version)
-		{
-			option.selected = true;
-		}
-		elm.appendChild(option);
-	});
+        Object.keys(environments[name]).reverse().forEach(version => {
+                let option = document.createElement("option");
+                option.value = name+":"+version;
+                option.textContent = dname+" "+version;
+                if (selected_environment.name == name && selected_environment.version == version)
+                {
+                        option.selected = true;
+                }
+                elm.appendChild(option);
+        });
 }
 
 var rerun_timer;
@@ -158,32 +161,49 @@ $.get("https://pluto-lang.org/wasm-builds/manifest.json", function(data)
 {
 	window.environments = data;
 
-	Object.keys(environments.libpluto).reverse().forEach(version => {
-		if (!latest_pluto_version
-			&& version.indexOf('-') == -1
-			)
-		{
-			latest_pluto_version = version;
-		}
-	});
+        Object.keys(environments.libpluto).reverse().forEach(version => {
+                if (!latest_pluto_version
+                        && version.indexOf('-') == -1
+                        )
+                {
+                        latest_pluto_version = version;
+                }
+        });
 
-	window.selected_environment = {
-		name: "libpluto",
-		url: environments.libpluto[latest_pluto_version]
-	};
-	runInEnvironment(window.selected_environment, function()
-	{
-		// Initial run finished, register change handlers.
-		editor.session.on("change", onCodeChange);
-		document.getElementById("version-select").onchange = function()
-		{
-			let arr = this.value.split(":");
-			selected_environment = {
-				name: arr[0],
-				url: environments[arr[0]][arr[1]]
-			};
-			runInEnvironment(selected_environment);
-		};
+        let env_name = "libpluto";
+        let env_version = latest_pluto_version;
+        if (selected_env_from_hash)
+        {
+                let arr = selected_env_from_hash.split(":");
+                if (environments[arr[0]] && environments[arr[0]][arr[1]])
+                {
+                        env_name = arr[0];
+                        env_version = arr[1];
+                }
+        }
+
+        window.selected_environment = {
+                name: env_name,
+                version: env_version,
+                url: environments[env_name][env_version]
+        };
+        runInEnvironment(window.selected_environment, function()
+        {
+                // Initial run finished, register change handlers.
+                editor.session.on("change", onCodeChange);
+                document.getElementById("version-select").onchange = function()
+                {
+                        let arr = this.value.split(":");
+                        selected_environment = {
+                                name: arr[0],
+                                version: arr[1],
+                                url: environments[arr[0]][arr[1]]
+                        };
+                        runInEnvironment(selected_environment, function()
+                        {
+                                updateShare();
+                        });
+                };
 
 		// If code was changed during environment boot, fire change handler.
 		if (file_contents[getActiveFile()] != editor.getValue())
@@ -193,9 +213,9 @@ $.get("https://pluto-lang.org/wasm-builds/manifest.json", function(data)
 	});
 
 	let optgroup = document.createElement("optgroup");
-	optgroup.label = "Pluto (Non-Blocking)";
-	addOptgroupOptions(optgroup, "libpluto", "Pluto");
-	document.getElementById("version-select").appendChild(optgroup);
+        optgroup.label = "Pluto (Non-Blocking)";
+        addOptgroupOptions(optgroup, "libpluto", "Pluto");
+        document.getElementById("version-select").appendChild(optgroup);
 
 	optgroup = document.createElement("optgroup");
 	optgroup.label = "Pluto (Blocking)";
@@ -203,9 +223,11 @@ $.get("https://pluto-lang.org/wasm-builds/manifest.json", function(data)
 	document.getElementById("version-select").appendChild(optgroup);
 
 	optgroup = document.createElement("optgroup");
-	optgroup.label = "Lua (Blocking)";
-	addOptgroupOptions(optgroup, "lua", "Lua");
-	document.getElementById("version-select").appendChild(optgroup);
+        optgroup.label = "Lua (Blocking)";
+        addOptgroupOptions(optgroup, "lua", "Lua");
+        document.getElementById("version-select").appendChild(optgroup);
+
+        document.getElementById("version-select").value = selected_environment.name + ":" + selected_environment.version;
 });
 
 // Code Execution
