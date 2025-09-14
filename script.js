@@ -81,22 +81,21 @@ document.addEventListener("click", function(e)
 // Shareable state
 function updateShare()
 {
-        let env = "env=" + encodeURIComponent(selected_environment.name + ":" + selected_environment.version);
-        if (Object.keys(file_contents).length > 1)
-        {
-                let parts = [];
-                for (const [name, contents] of Object.entries(file_contents))
-                {
-                        parts.push("file_names[]=" + encodeURIComponent(name));
-                        parts.push("file_contents[]=" + encodeURIComponent(contents));
-                }
-                parts.push(env);
-                location.hash = "#" + parts.join("&");
-        }
-        else
-        {
-                location.hash = "#code=" + encodeURIComponent(editor.getValue()) + "&" + env;
-        }
+	let env = "env=" + encodeURIComponent(selected_environment.name + ":" + selected_environment.version);
+	if (Object.keys(file_contents).length > 1)
+	{
+		let parts = [ env ];
+		for (const [name, contents] of Object.entries(file_contents))
+		{
+			parts.push("file_names[]=" + encodeURIComponent(name));
+			parts.push("file_contents[]=" + encodeURIComponent(contents));
+		}
+		location.hash = "#" + parts.join("&");
+	}
+	else
+	{
+		location.hash = "#" + env + "&code=" + encodeURIComponent(editor.getValue());
+	}
 }
 
 let params = new URLSearchParams(location.hash.replace("#", "?"));
