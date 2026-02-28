@@ -233,9 +233,6 @@ $.get("https://pluto-lang.org/wasm-builds/manifest.json", function(data)
 const LUA_OK = 0;
 const LUA_YIELD = 1;
 
-const LUAI_MAXSTACK = 1000000;
-const LUA_REGISTRYINDEX = (-LUAI_MAXSTACK - 1000);
-
 function runInEnvironment(environment, callback)
 {
 	$("#output").text("$ Loading " + environment.name + ".js...\n");
@@ -321,7 +318,14 @@ function runInEnvironment(environment, callback)
 					luaL_ref: mod.cwrap("luaL_ref", "int", ["int", "int"]),
 					lua_close: mod.cwrap("lua_close", "void", ["int"]),
 				};
-				if (!lib.luaL_openlibs)
+				const INT_MAX = 2147483647;
+				let LUA_REGISTRYINDEX = (-(Math.trunc(INT_MAX/2) + 1000));
+				if (mod._lua_resetthread) // < 0.13.0 ?
+				{
+					const LUAI_MAXSTACK = 1000000;
+					LUA_REGISTRYINDEX = (-LUAI_MAXSTACK - 1000);
+				}
+				if (!lib.luaL_openlibs) // >= 0.12.0 ?
 				{
 					lib.luaL_openselectedlibs = mod.cwrap("luaL_openselectedlibs", "int", ["int", "int", "int"]);
 					lib.luaL_openlibs = (L) => lib.luaL_openselectedlibs(L, 1023, 0xffffffff);
