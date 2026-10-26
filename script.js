@@ -316,6 +316,7 @@ function runInEnvironment(environment, callback)
 					lua_status: mod.cwrap("lua_status", "int", ["int"]),
 					lua_resume: mod.cwrap("lua_resume", "int", ["int", "int", "int", "int"]),
 					luaL_ref: mod.cwrap("luaL_ref", "int", ["int", "int"]),
+					luaL_traceback: mod._luaL_traceback ? mod.cwrap("luaL_traceback", "void", ["int", "int", "int", "int"]) : undefined,
 					lua_close: mod.cwrap("lua_close", "void", ["int"]),
 				};
 				const INT_MAX = 2147483647;
@@ -364,6 +365,12 @@ function runInEnvironment(environment, callback)
 							if (status != LUA_OK)
 							{
 								document.getElementById("output").textContent += lib.lua_tolstring(coro, -1, 0);
+								if (lib.luaL_traceback)
+								{
+									// Build traceback from the errored coroutine's stack, like lua.c's msghandler.
+									lib.luaL_traceback(L, coro, 0, 0);
+									document.getElementById("output").textContent += "\n" + lib.lua_tolstring(L, -1, 0);
+								}
 								break;
 							}
 						}
