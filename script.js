@@ -240,9 +240,21 @@ function runInEnvironment(environment, callback)
 	var script = document.createElement("script");
 	script.id = "environment-js";
 	script.src = environment.url;
+
+	// Preload the matching .wasm file alongside the .js loader.
+	let wasm_preload = document.createElement("link");
+	wasm_preload.id = "environment-wasm-preload";
+	wasm_preload.rel = "preload";
+	wasm_preload.as = "fetch";
+	wasm_preload.type = "application/wasm";
+	wasm_preload.crossOrigin = "anonymous";
+	wasm_preload.href = environment.url.replace(/\.js$/, ".wasm");
+	document.head.appendChild(wasm_preload);
+
 	script.onload = function()
 	{
 		$("#environment-js").remove();
+		$("#environment-wasm-preload").remove();
 		document.getElementById("output").textContent += "$ Loading " + environment.name + ".wasm...\n";
 
 		let config = {};
