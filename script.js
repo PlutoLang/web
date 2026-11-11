@@ -229,6 +229,11 @@ $.get("https://pluto-lang.org/wasm-builds/manifest.json", function(data)
 	document.getElementById("version-select").value = selected_environment.name + ":" + selected_environment.version;
 });
 
+function environment_hasWrapper(environment)
+{
+	return environment.name == "libpluto" && environment.version.startsWith("0.14."); // TODO: Better version check
+}
+
 // Code Execution
 const LUA_OK = 0;
 const LUA_YIELD = 1;
@@ -237,9 +242,29 @@ function runInEnvironment(environment, callback)
 {
 	$("#output").text("$ Loading " + environment.name + ".js...\n");
 
-	var script = document.createElement("script");
-	script.id = "environment-js";
-	script.src = environment.url;
+	const promises = [
+		new Promise(resolve => {
+			var script = document.createElement("script");
+			script.id = "environment-js";
+			script.src = environment.url;
+			script.onload = resolve;
+			document.body.appendChild(script);
+		})
+	];
+
+	if (environment_hasWrapper(environment))
+	{
+		promises.push(
+			new Promise(resolve => {
+				var script = document.createElement("script");
+				script.id = "environment-wrapper-js";
+				script.src = environment.url.replace(".js", "-wrapper.mjs");
+				script.type = "module";
+				script.onload = resolve;
+				document.body.appendChild(script);
+			})
+		);
+	}
 
 	// Preload the matching .wasm file alongside the .js loader.
 	let wasm_preload = document.createElement("link");
@@ -251,9 +276,10 @@ function runInEnvironment(environment, callback)
 	wasm_preload.href = environment.url.replace(/\.js$/, ".wasm");
 	document.head.appendChild(wasm_preload);
 
-	script.onload = function()
+	Promise.all(promises).then(function()
 	{
 		$("#environment-js").remove();
+		$("#environment-wrapper-js").remove();
 		$("#environment-wasm-preload").remove();
 		document.getElementById("output").textContent += "$ Loading " + environment.name + ".wasm...\n";
 
@@ -317,32 +343,41 @@ function runInEnvironment(environment, callback)
 			$("#output").text("");
 			if (environment.name == "libpluto")
 			{
-				let lib = {
-					malloc: mod.cwrap("malloc", "int", ["int"]),
-					luaL_newstate: mod.cwrap("luaL_newstate", "int", []),
-					luaL_openlibs: mod._luaL_openlibs ? mod.cwrap("luaL_openlibs", "void", ["int"]) : undefined,
-					luaL_loadfilex: mod.cwrap("luaL_loadfilex", "int", ["int", "string", "int"]),
-					lua_tolstring: mod.cwrap("lua_tolstring", "string", ["int", "int", "int"]),
-					lua_newthread: mod.cwrap("lua_newthread", "int", ["int"]),
-					lua_xmove: mod.cwrap("lua_xmove", "void", ["int", "int", "int"]),
-					lua_status: mod.cwrap("lua_status", "int", ["int"]),
-					lua_resume: mod.cwrap("lua_resume", "int", ["int", "int", "int", "int"]),
-					luaL_ref: mod.cwrap("luaL_ref", "int", ["int", "int"]),
-					luaL_traceback: mod._luaL_traceback ? mod.cwrap("luaL_traceback", "void", ["int", "int", "int", "int"]) : undefined,
-					lua_close: mod.cwrap("lua_close", "void", ["int"]),
-				};
-				const INT_MAX = 2147483647;
-				let LUA_REGISTRYINDEX = (-(Math.trunc(INT_MAX/2) + 1000));
-				if (mod._lua_resetthread) // < 0.13.0 ?
+				let lib;
+				if (environment_hasWrapper(environment))
 				{
-					const LUAI_MAXSTACK = 1000000;
-					LUA_REGISTRYINDEX = (-LUAI_MAXSTACK - 1000);
+					lib = window[`${environment.name}Wrapper`](mod);
 				}
-				if (!lib.luaL_openlibs) // >= 0.12.0 ?
+				else
 				{
-					lib.luaL_openselectedlibs = mod.cwrap("luaL_openselectedlibs", "int", ["int", "int", "int"]);
-					lib.luaL_openlibs = (L) => lib.luaL_openselectedlibs(L, 1023, 0xffffffff);
+					lib = {
+						malloc: mod.cwrap("malloc", "int", ["int"]),
+						luaL_newstate: mod.cwrap("luaL_newstate", "int", []),
+						luaL_openlibs: mod._luaL_openlibs ? mod.cwrap("luaL_openlibs", "void", ["int"]) : undefined,
+						luaL_loadfilex: mod.cwrap("luaL_loadfilex", "int", ["int", "string", "int"]),
+						lua_tolstring: mod.cwrap("lua_tolstring", "string", ["int", "int", "int"]),
+						lua_newthread: mod.cwrap("lua_newthread", "int", ["int"]),
+						lua_xmove: mod.cwrap("lua_xmove", "void", ["int", "int", "int"]),
+						lua_status: mod.cwrap("lua_status", "int", ["int"]),
+						lua_resume: mod.cwrap("lua_resume", "int", ["int", "int", "int", "int"]),
+						luaL_ref: mod.cwrap("luaL_ref", "int", ["int", "int"]),
+						luaL_traceback: mod._luaL_traceback ? mod.cwrap("luaL_traceback", "void", ["int", "int", "int", "int"]) : undefined,
+						lua_close: mod.cwrap("lua_close", "void", ["int"]),
+					};
+					const INT_MAX = 2147483647;
+					lib.LUA_REGISTRYINDEX = (-(Math.trunc(INT_MAX/2) + 1000));
+					if (mod._lua_resetthread) // < 0.13.0 ?
+					{
+						const LUAI_MAXSTACK = 1000000;
+						lib.LUA_REGISTRYINDEX = (-LUAI_MAXSTACK - 1000);
+					}
+					if (!lib.luaL_openlibs) // >= 0.12.0 ?
+					{
+						lib.luaL_openselectedlibs = mod.cwrap("luaL_openselectedlibs", "int", ["int", "int", "int"]);
+						lib.luaL_openlibs = (L) => lib.luaL_openselectedlibs(L, 1023, 0xffffffff);
+					}
 				}
+
 				lib.tmpint = lib.malloc(4);
 
 				let L = lib.luaL_newstate();
@@ -362,7 +397,7 @@ function runInEnvironment(environment, callback)
 					let interval, coro, coro_ref;
 
 					coro = lib.lua_newthread(L);
-					coro_ref = lib.luaL_ref(L, LUA_REGISTRYINDEX);
+					coro_ref = lib.luaL_ref(L, lib.LUA_REGISTRYINDEX);
 					lib.lua_xmove(L, coro, 1);
 
 					interval = setInterval(function()
@@ -421,8 +456,7 @@ function runInEnvironment(environment, callback)
 				}
 			}
 		});
-	};
-	document.body.appendChild(script);
+	});
 }
 
 function utf32_to_utf16(c)
