@@ -307,7 +307,7 @@ function runInEnvironment(environment, callback)
 			// Write files to FS
 			for (const [name, contents] of Object.entries(file_contents))
 			{
-				let data = utf16_to_utf8(contents);
+				let data = new Uint8Array(utf16_to_utf8(contents));
 				let stream = mod.FS.open(name, "w+");
 				mod.FS.write(stream, data, 0, data.length, 0);
 				mod.FS.close(stream);
